@@ -4,20 +4,21 @@ import transformers
 from flask import Flask, Response, stream_with_context, request, render_template, jsonify, send_from_directory
 from tools import searchengine, scrapeweb, stable_diffusion_generate_image, pythoninterpreter, searchengineduckduckgo
 from utils import parseoutput, query
-import markdown
+from pyngrok import ngrok
+
+public_url = ngrok.connect(5000).public_url
+print(f"Access this: {public_url}")
 
 getFunction = {
     "searchengine": searchengine,
     "scrapeweb": scrapeweb,
     "stable_diffusion_generate_image": stable_diffusion_generate_image,
     "pythoninterpreter": pythoninterpreter,
-    # "RAGPDF": RAGPDF
 }
 TOOLS = [stable_diffusion_generate_image,
          scrapeweb,
          searchengine,
          pythoninterpreter,
-         # RAGPDF
          ]
 toolsAlias = {
     "stable_diffusion_generate_image": "Stable Diffusion Image Generator",
@@ -31,11 +32,7 @@ model = "Qwen/Qwen2.5-72B-Instruct"
 URL = "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct"
 seed = int.from_bytes(os.urandom(8), 'big')
 max_tokens = 8000
-system_prompt = "You are qwen Chatbot. You has been placed in this agent with all" \
-                "features by Michael. Always introduce yourself first. Michael using you for his portfolio. You are his" \
-                "projects. People may ask about Michael's including his other projects, his interest, current academics," \
-                " and other. Michael will give his identity and his information below. Also, you are helpful assistant, " \
-                "that can help other people task beside you giving information about Michael."
+system_prompt = "You are qwen Chatbot"
 chat = []
 userturn = None
 tokenizer = transformers.AutoTokenizer.from_pretrained(model)
@@ -133,7 +130,8 @@ def runmodel(usertext):
 
 
 app = Flask(__name__)
-
+# Update any base URLs to use the public ngrok URL
+app.config["BASE_URL"] = public_url
 
 @app.route('/sendtext')
 def send_text():
@@ -158,17 +156,11 @@ def reset_conversation():
     return jsonify({'message': 'Conversation reset'}), 200
 
 
-@app.route('/chat_tool_history')
-def tools_history():
-    return markdown.markdown(tokenizer.apply_chat_template(chat, tokenize=False, tools=TOOLS).replace("\n", "\n\n"))
-
-
 @app.route('/chatdict')
 def chat_history():
     return jsonify(chat)
 
 
 if __name__ == '__main__':
-    # resetconv()
-    # app.run(host='0.0.0.0', port=5000, )
-    print(searchengineduckduckgo("michael"))
+    resetconv()
+    app.run()
