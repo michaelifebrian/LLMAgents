@@ -10,15 +10,12 @@ def parseoutput(response: str):
 
     if match:
         function_name, args_string = match.groups()
-        if function_name != 'pythoninterpreter':
-            try:
-                args = json.loads(args_string)
-                return function_name, args, response
-            except json.JSONDecodeError as error:
-                print(f"Error parsing function arguments: {error}")
-                return None, None, "Error"
-        elif function_name == 'pythoninterpreter':
-            return function_name, args_string, response
+        try:
+            args = json.loads(args_string)
+            return function_name, args, response
+        except json.JSONDecodeError as error:
+            print(f"Error parsing function arguments: {error}")
+            return None, None, "Error"
     return None, None, response
 
 
