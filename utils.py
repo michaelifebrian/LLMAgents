@@ -2,8 +2,7 @@ import re
 import json
 import requests
 
-HF_TOKEN = ""
-
+API_TOKEN = ""
 
 def parseoutput(output):
     functions_name = []
@@ -13,7 +12,6 @@ def parseoutput(output):
         tool_call_match = re.search(r'<tool_call>(.*?)</tool_call>', output, re.DOTALL)
         if tool_call_match:
             tool_call_json = tool_call_match.group(1)
-            output = output.replace("\n<tool_call>" + tool_call_json + "</tool_call>", "")
             output = output.replace("<tool_call>" + tool_call_json + "</tool_call>", "")
             try:
                 tool_call_data = json.loads(tool_call_json)
@@ -34,11 +32,18 @@ def parseoutput(output):
 
 
 headers = {
-    "Authorization": f"Bearer {HF_TOKEN}",
+    "Authorization": f"Bearer {API_TOKEN}",
     "Content-Type": "application/json",
-    "x-wait-for-model": "true",
-    "x-use-cache": "false"
+    "Accept": "application/json"
 }
+
+
 def query(url, payload):
-    responsetext = requests.post(url + "/v1/completions", headers=headers, json=payload)
-    return responsetext.json()
+    return requests.post(url + "/v1/completions", headers=headers, json=payload, stream=True)
+
+
+def generate_prompt(chat_dict):
+    prompt = "<|begin_of_text|>"
+    for i in chat_dict:
+        prompt += f"<|start_header_id|>{i['role']}<|end_header_id|>\n\n{i['content']}<|eot_id|>"
+    return prompt

@@ -15,7 +15,7 @@ import requests
 from pathlib import Path
 
 HF_TOKEN = ""
-imgcounter = 0
+imgCounter = 0
 def stable_diffusion_generate_image(caption: str):
     """
     A function to create image using Stable Diffusion from caption and display it. Use long specific prompt/caption to make the image accurate.
@@ -26,7 +26,7 @@ def stable_diffusion_generate_image(caption: str):
         A confirmation of image displayed or not
     """
     print(f"SD called with prompt: {caption}")
-    global imgcounter
+    global imgCounter
     def quer(payload, API_URL):
         responsesd = requests.post(API_URL, headers=headers, json=payload)
         return responsesd.content
@@ -36,10 +36,10 @@ def stable_diffusion_generate_image(caption: str):
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
         image_bytes = quer({"inputs": caption, }, API_URL)
         image = Image.open(io.BytesIO(image_bytes))
-        imgcounter += 1
-        image.save(f"image{imgcounter}.jpg")
+        imgCounter += 1
+        image.save(f"image{imgCounter}.jpg")
         return {
-            "status": f"image{imgcounter}.jpg"
+            "status": f"Image generated and saved as image{imgCounter}.jpg"
         }
     except Exception as error:
         return {"status": f"Error: {error}"}
@@ -75,7 +75,7 @@ def searchenginegoogle(keyword: str):
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument('--start-maximized')
-    options.add_argument('window-size=1920x1080');
+    options.add_argument('window-size=1920x1080')
     # start session
     driver = webdriver.Chrome(options=options)
     returnresult = []
@@ -90,7 +90,7 @@ def searchenginegoogle(keyword: str):
 
         # Wait for results to load
         time.sleep(3)
-        html = driver.page_source
+        # html = driver.page_source
         # Extract search result elements
         results = driver.find_elements(By.CSS_SELECTOR, "div.g")
         # Loop through and extract title, link, and description
@@ -131,7 +131,8 @@ def searchengine(keyword: str):
         A dict list of search results.
     """
     print(f"Search engine called with keyword: {keyword}")
-    listofresult = searchengineduckduckgo(keyword)
+    listofresult = []
+    listofresult.extend(searchengineduckduckgo(keyword))
     listofresult.extend(searchenginegoogle(keyword))
     return listofresult
 
@@ -151,7 +152,7 @@ def scrapeweb(url: str):
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument('--start-maximized')
-        options.add_argument('window-size=1920x1080');
+        options.add_argument('window-size=1920x1080')
         # start session
         browser = webdriver.Chrome(options=options)
         browser.get(url)
