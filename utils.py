@@ -4,31 +4,22 @@ import requests
 
 API_TOKEN = ""
 
-def parseoutput(output):
-    functions_name = []
-    functions_args = []
-    tool_call_match = re.search(r'<tool_call>(.*?)</tool_call>', output, re.DOTALL)
-    while tool_call_match:
-        tool_call_match = re.search(r'<tool_call>(.*?)</tool_call>', output, re.DOTALL)
-        if tool_call_match:
-            tool_call_json = tool_call_match.group(1)
-            output = output.replace("<tool_call>" + tool_call_json + "</tool_call>", "")
+def parseoutput(response: str):
+    function_regex = r"<function=(\w+)>(.*?)</function>"
+    match = re.search(function_regex, response)
+
+    if match:
+        function_name, args_string = match.groups()
+        if function_name != 'pythoninterpreter':
             try:
-                tool_call_data = json.loads(tool_call_json)
-
-                # Extracting the function name and arguments
-                function_name = tool_call_data.get("name")
-                function_name = tool_call_data.get("function") if function_name is None else function_name
-                arguments = tool_call_data.get("arguments")
-                if type(arguments) == str:
-                    arguments = json.loads(arguments)
-                functions_name.append(function_name)
-                functions_args.append(arguments)
-
-            except json.JSONDecodeError:
-                print("Error parsing JSON content.")
-                output = "ERROR"
-    return functions_name, functions_args, output
+                args = json.loads(args_string)
+                return function_name, args, response
+            except json.JSONDecodeError as error:
+                print(f"Error parsing function arguments: {error}")
+                return None, None, "Error"
+        elif function_name == 'pythoninterpreter':
+            return function_name, args_string, response
+    return None, None, response
 
 
 headers = {

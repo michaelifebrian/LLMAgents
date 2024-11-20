@@ -13,6 +13,7 @@ from duckduckgo_search import DDGS
 import re
 import requests
 from pathlib import Path
+import json
 
 HF_TOKEN = ""
 imgCounter = 0
@@ -179,7 +180,9 @@ def pythoninterpreter(code_string: str):
         The output of the Python script.
     """
     print("Python interpreter called")
-
+    code_string = code_string.replace("{\"code_string\": \"", "").replace("{\"code_string\":\"", "")
+    code_string = json.loads(json.dumps(code_string))
+    code_string = code_string.encode('utf-8').decode('unicode-escape')[:-2]
     nb = nbformat.v4.new_notebook()
     nb.cells.append(nbformat.v4.new_code_cell(code_string))
 
