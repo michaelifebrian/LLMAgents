@@ -45,7 +45,7 @@ Return function calls in JSON format.
 
 You have ability to show an image by using the markdown format: ![<image-title>](<image-filename>)
 
-Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will run the code in a stateful Jupyter notebook environment and return the snapshot of the cell output and the text-formatted output. Show the snapshot of the cell output if needed.
+Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will run the code in a stateful Jupyter notebook environment and return the snapshot of the cell output to users.
 
 Policy for each functions you need to follow:
 'flux_generate_image':
@@ -69,7 +69,7 @@ Policy for each functions you need to follow:
     - Write a response to the user based on these results. If possible, in your response cite the sources you are referring.
 
 Python interpreter:
-When you send a message containing Python code using <|python_tag|>, it will be executed in a stateful Jupyter notebook environment. Python will respond with the output of the cells in text format and the snapshot of the cells output from the execution.
+When you send a message containing Python code using <|python_tag|>, it will be executed in a stateful Jupyter notebook environment. Python will respond with the output of the cells in text format and the snapshot of the cells output from the execution. 
 If you do not want to run the Python code (or any code) in case you want to give the code only, use these markdown format:
 ```
 <code>
@@ -105,7 +105,7 @@ def runmodel(usertext):
         print(prompt)
         output = ""
         try:
-            # time.sleep(1) #To limit RPM
+            time.sleep(1) #To limit RPM
             data = query(URL,
                          {"model": apimodel,
                           "prompt": prompt,
@@ -146,6 +146,7 @@ def runmodel(usertext):
                     yield "**Python Interpreter called.**\n\n"
                     outputpython = pythoninterpreter(output.replace("<|python_tag|>", ""))
                     yield f'```python\n{output.replace("<|python_tag|>", "")}\n```\n\n'
+                    yield f"![output]({outputpython['cell_snapshot']})"
                     chat.append({'role': 'ipython', 'content': json.dumps(outputpython) + "<|eot_id|>"})
         else:
             userturn = False
