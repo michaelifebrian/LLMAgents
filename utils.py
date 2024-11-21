@@ -7,7 +7,9 @@ API_TOKEN = ""
 def parseoutput(response: str):
     function_regex = r"<function=(\w+)>(.*?)</function>"
     match = re.search(function_regex, response)
-
+    if not match:
+        function_regex = r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*\})"
+        match = re.search(function_regex, response)
     if match:
         function_name, args_string = match.groups()
         try:
@@ -33,5 +35,5 @@ def query(url, payload):
 def generate_prompt(chat_dict):
     prompt = "<|begin_of_text|>"
     for i in chat_dict:
-        prompt += f"<|start_header_id|>{i['role']}<|end_header_id|>\n\n{i['content']}<|eot_id|>"
+        prompt += f"<|start_header_id|>{i['role']}<|end_header_id|>\n\n{i['content']}"
     return prompt

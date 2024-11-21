@@ -17,16 +17,16 @@ import json
 
 HF_TOKEN = ""
 imgCounter = 0
-def stable_diffusion_generate_image(caption: str):
+def stable_diffusion_generate_image(prompt: str):
     """
-    A function to create image using Stable Diffusion from caption and display it. Use long specific prompt/caption to make the image accurate.
+    create image using Stable Diffusion from prompt and display it. Use long specific prompt/caption to make the image accurate.
 
     Args:
-        caption: The prompt to generate image from.
+        prompt: The prompt to generate image from.
     Returns:
         A confirmation of image displayed or not
     """
-    print(f"SD called with prompt: {caption}")
+    print(f"SD called with prompt: {prompt}")
     global imgCounter
     def quer(payload, API_URL):
         responsesd = requests.post(API_URL, headers=headers, json=payload)
@@ -35,7 +35,7 @@ def stable_diffusion_generate_image(caption: str):
     try:
         API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
         headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-        image_bytes = quer({"inputs": caption, }, API_URL)
+        image_bytes = quer({"inputs": prompt, }, API_URL)
         image = Image.open(io.BytesIO(image_bytes))
         imgCounter += 1
         image.save(f"image{imgCounter}.jpg")
@@ -48,7 +48,7 @@ def stable_diffusion_generate_image(caption: str):
 
 def searchengineduckduckgo(keyword: str, max_results: int = 8):
     """
-    A function to search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
+    search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
 
     Args:
         keyword: The keyword to search for.
@@ -65,7 +65,7 @@ def searchengineduckduckgo(keyword: str, max_results: int = 8):
 
 def searchenginegoogle(keyword: str):
     """
-    A function to search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
+    search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
 
     Args:
         keyword: The keyword to search for.
@@ -124,7 +124,7 @@ def searchenginegoogle(keyword: str):
 
 def searchengine(keyword: str):
     """
-    A function to search the web from a keyword. Always crosschecks the information by accessing the url href, the information given from search engine is not updated.
+    search the web from a keyword. Always crosschecks the information by accessing the url href, the information given from search engine is not updated.
 
     Args:
         keyword: The keyword to search for.
@@ -138,9 +138,9 @@ def searchengine(keyword: str):
     return listofresult
 
 
-def scrapeweb(url: str):
+def browser(url: str):
     """
-    A function to open and scrape the web from a url.
+    open and scrape the web from a url.
 
     Args:
         url: The url to open.
@@ -172,7 +172,7 @@ def scrapeweb(url: str):
 
 def pythoninterpreter(code_string: str):
     """
-    A function to run Python code and return its output as an image. Always use this to validate a generated python code.
+    run Python code in jupyter environment and return its output and the snapshot of the cells output. Always use this to validate a generated python code.
 
     Args:
         code_string: The Python code to run.
@@ -180,15 +180,28 @@ def pythoninterpreter(code_string: str):
         The output of the Python script.
     """
     print("Python interpreter called")
-    code_string = code_string.replace("{\"code_string\": \"", "").replace("{\"code_string\":\"", "")
     code_string = json.loads(json.dumps(code_string))
-    code_string = code_string.encode('utf-8').decode('unicode-escape')[:-2]
+    code_string = code_string.encode('utf-8').decode('unicode-escape')
     nb = nbformat.v4.new_notebook()
     nb.cells.append(nbformat.v4.new_code_cell(code_string))
-
     ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
     try:
         nb_out, _ = ep.preprocess(nb)
+        text_outputs = []
+        for cell in nb_out.cells:
+            if cell.cell_type == 'code':  # Only process code cells
+                for output in cell.get('outputs', []):
+                    if output.output_type == 'stream':
+                        # Stream output (e.g., print statements)
+                        text_outputs.append(output.get('text', ''))
+                    elif output.output_type == 'execute_result':
+                        # Execution result (e.g., Jupyter cell output)
+                        data = output.get('data', {})
+                        if 'text/plain' in data:
+                            text_outputs.append(data['text/plain'])
+                    elif output.output_type == 'error':
+                        # Error output
+                        text_outputs.append('\n'.join(output.get('traceback', [])))
         html_exporter = HTMLExporter()
         html_data, _ = html_exporter.from_notebook_node(nb_out)
         soup = BeautifulSoup(html_data, "html.parser")
@@ -209,6 +222,6 @@ def pythoninterpreter(code_string: str):
         full_body_element = driver.find_element(By.TAG_NAME, "body")
         full_body_element.screenshot("output.png")
         driver.quit()
-        return {'status': f"Output saved to output.png"}
+        return {'status': f"Snapshot of cells output saved as output.png", 'output': '\n'.join(text_outputs)}
     except Exception as e:
         return {'status': f"Failed to execute the notebook: {e}"}
