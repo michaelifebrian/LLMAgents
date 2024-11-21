@@ -1,25 +1,5 @@
-import re
-import json
 import requests
-
-API_TOKEN = ""
-
-def parseoutput(response: str):
-    function_regex = r"<function=(\w+)>(.*?)</function>"
-    match = re.search(function_regex, response)
-    if not match:
-        function_regex = r"<function=([a-zA-Z_][a-zA-Z0-9_]*)>\s*(\{.*\})"
-        match = re.search(function_regex, response)
-    if match:
-        function_name, args_string = match.groups()
-        try:
-            args = json.loads(args_string)
-            return function_name, args, response
-        except json.JSONDecodeError as error:
-            print(f"Error parsing function arguments: {error}")
-            return None, None, "Error"
-    return None, None, response
-
+from apitoken import API_TOKEN
 
 headers = {
     "Authorization": f"Bearer {API_TOKEN}",

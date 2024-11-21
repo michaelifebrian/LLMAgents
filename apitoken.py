@@ -1,0 +1,7 @@
+# apimodel = "accounts/fireworks/models/llama-v3p1-70b-instruct"
+# URL = "https://api.fireworks.ai/inference"
+apimodel = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+URL = "https://api.together.xyz"
+# API_TOKEN = "fw_3Zb2nyb4FdKd3ZB6TR669zeV"
+API_TOKEN = "0b8b13e2be17f4c9412d3ee7df83df23498b2e099b79ecb7c2f5d3f018c3b6c0"
+HF_TOKEN = "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"
