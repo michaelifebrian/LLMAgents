@@ -2,7 +2,7 @@ import json
 import os
 from transformers.utils import get_json_schema
 from flask import Flask, Response, stream_with_context, request, render_template, jsonify, send_from_directory
-from tools import searchengine, browser, flux_generate_image, pythoninterpreter
+from tools import searchengine, browser, flux_generate_image, pythoninterpreter, isjson
 from utils import query, generate_prompt
 from pyngrok import ngrok
 from sseclient import SSEClient
@@ -133,7 +133,7 @@ def runmodel(usertext):
                 userturn = True
             elif "<|python_tag|>" in output:
                 userturn = False
-                try:
+                if isjson(output.replace("<|python_tag|>", "")):
                     parsed = json.loads(output.replace("<|python_tag|>", ""))
                     chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
                     yield f"**{toolsAlias[parsed['name']]} called.**\n\n"
@@ -141,12 +141,12 @@ def runmodel(usertext):
                         'role': 'ipython',
                         'content': json.dumps(getFunction[parsed['name']](**parsed['parameters'])) + "<|eot_id|>"
                     })
-                except:
+                else:
                     chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
                     yield "**Python Interpreter called.**\n\n"
                     outputpython = pythoninterpreter(output.replace("<|python_tag|>", ""))
                     yield f'```python\n{output.replace("<|python_tag|>", "")}\n```\n\n'
-                    yield f"![output]({outputpython['cell_snapshot']})"
+                    yield f"![output]({outputpython['cell_snapshot']})" if outputpython['cell_snapshot'] != '' else ''
                     chat.append({'role': 'ipython', 'content': json.dumps(outputpython) + "<|eot_id|>"})
         else:
             userturn = False

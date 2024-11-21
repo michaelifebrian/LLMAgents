@@ -19,6 +19,14 @@ from apitoken import HF_TOKEN
 imgCounter = 0
 
 
+def isjson(inputjson):
+    try:
+        json.loads(inputjson)
+    except ValueError as e:
+        return False
+    return True
+
+
 def flux_generate_image(prompt: str):
     """
     create image using Flux.1 from prompt and display it. Use long specific prompt to make the image accurate.
@@ -232,6 +240,6 @@ def pythoninterpreter(code_string: str):
         full_body_element = driver.find_element(By.TAG_NAME, "body")
         full_body_element.screenshot("output.png")
         driver.quit()
-        return {'cell_snapshot': f"output.png", 'text_output': '\n'.join(text_outputs)}
+        return {'cell_snapshot': "output.png", 'text_output': '\n'.join(text_outputs)}
     except Exception as e:
-        return {'status': f"Failed to execute the notebook: {e}"}
+        return {'cell_snapshot': "", 'text_output': str(e)}
