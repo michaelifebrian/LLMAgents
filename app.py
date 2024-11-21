@@ -2,7 +2,7 @@ import json
 import os
 from transformers.utils import get_json_schema
 from flask import Flask, Response, stream_with_context, request, render_template, jsonify, send_from_directory
-from tools import searchengine, browser, stable_diffusion_generate_image, pythoninterpreter
+from tools import searchengine, browser, flux_generate_image, pythoninterpreter
 from utils import parseoutput, query, generate_prompt
 from pyngrok import ngrok
 from sseclient import SSEClient
@@ -11,21 +11,21 @@ import time
 public_url = ngrok.connect(5000).public_url
 print(f"Access this: {public_url}")
 
-apimodel = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"
-URL = "https://api.together.xyz"
+apimodel = "accounts/fireworks/models/llama-v3p1-405b-instruct"
+URL = "https://api.fireworks.ai/inference"
 getFunction = {
     "searchengine": searchengine,
     "browser": browser,
-    "stable_diffusion_generate_image": stable_diffusion_generate_image,
+    "flux_generate_image": flux_generate_image,
 }
-TOOLS = [stable_diffusion_generate_image,
+TOOLS = [flux_generate_image,
          browser,
          searchengine,
          ]
 tools = [get_json_schema(i) for i in TOOLS]
 tools = "\n".join([f"Use the function '{i['function']['name']}' to: '{i['function']['description']}'\n{i['function']}" for i in tools])
 toolsAlias = {
-    "stable_diffusion_generate_image": "Stable Diffusion Image Generator",
+    "flux_generate_image": "Flux Image Generator",
     "browser": "Browser",
     "searchengine": "Web Search",
 }
@@ -59,11 +59,11 @@ Reminder:
 
 Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will return the output within the image file, display it with '![image-title](image-filename)'<|eot_id|>
 
-Policy for functions:
-'stable_diffusion_generate_image':
+Policy for functions you need to follow:
+'flux_generate_image':
 1. The prompt must be in English. Translate to English if needed.
 2. DO NOT ask for permission to generate the image, just do it!
-3. The generated prompt sent to stable diffusion should be very detailed, and around 100 words long and above.
+3. The generated prompt sent to flux should and must be very detailed, and around 100 words long and above.
 
 'browser':
 1. You can open a url directly if one is provided by the user or you know the exact url you need to open. You can open the urls returned by the searchengine function or found on webpages.

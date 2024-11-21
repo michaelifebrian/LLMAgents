@@ -17,25 +17,35 @@ import json
 
 HF_TOKEN = ""
 imgCounter = 0
-def stable_diffusion_generate_image(prompt: str):
+
+
+def flux_generate_image(prompt: str):
     """
-    create image using Stable Diffusion from prompt and display it. Use long specific prompt/caption to make the image accurate.
+    create image using Flux.1 from prompt and display it. Use long specific prompt to make the image accurate.
 
     Args:
-        prompt: The prompt to generate image from.
+        prompt: The prompt to generate image from
     Returns:
         A confirmation of image displayed or not
     """
-    print(f"SD called with prompt: {prompt}")
+    print(f"Flux called with prompt: {prompt}")
     global imgCounter
     def quer(payload, API_URL):
         responsesd = requests.post(API_URL, headers=headers, json=payload)
         return responsesd.content
 
     try:
-        API_URL = "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-3.5-large"
-        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-        image_bytes = quer({"inputs": prompt, }, API_URL)
+        API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
+        headers = {"Authorization": f"Bearer {HF_TOKEN}", "x-use-cache": "false"}
+        image_bytes = quer(
+          {"inputs": prompt,
+           "parameters":{
+                "guidance_scale": 3.5,
+               "num_inference_steps": 50,
+               "max_sequence_length": 512
+           },},
+          API_URL
+          )
         image = Image.open(io.BytesIO(image_bytes))
         imgCounter += 1
         image.save(f"image{imgCounter}.jpg")
