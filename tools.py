@@ -14,6 +14,8 @@ import re
 import requests
 from pathlib import Path
 import json
+import traceback
+import sys
 from apitoken import HF_TOKEN
 
 imgCounter = 0
@@ -202,7 +204,7 @@ def pythoninterpreter(code_string: str):
     code_string = code_string.encode('utf-8').decode('unicode-escape')
     nb = nbformat.v4.new_notebook()
     nb.cells.append(nbformat.v4.new_code_cell(code_string))
-    ep = ExecutePreprocessor(timeout=600, kernel_name='python3')
+    ep = ExecutePreprocessor(timeout=60, kernel_name='python3')
     try:
         nb_out, _ = ep.preprocess(nb)
         text_outputs = []
@@ -242,4 +244,7 @@ def pythoninterpreter(code_string: str):
         driver.quit()
         return {'cell_snapshot': "output.png", 'text_output': '\n'.join(text_outputs)}
     except Exception as e:
-        return {'cell_snapshot': "", 'text_output': str(e)}
+        tb = "".join(traceback.format_exception_only(type(e), e))
+        tb = re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{3})?)?[m|K]?', '', tb)
+        tb = re.sub(r"-{2,}", "-", tb)
+        return {'cell_snapshot': "", 'text_output': tb}
