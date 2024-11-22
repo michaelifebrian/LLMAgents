@@ -2,14 +2,14 @@ import json
 import os
 from transformers.utils import get_json_schema
 from flask import Flask, Response, stream_with_context, request, render_template, jsonify, send_from_directory
-from tools import searchengine, browser, flux_generate_image, pythoninterpreter, isjson
+from tools import searchengine, browser, flux_generate_image, python_interpreter, is_json
 from utils import query, generate_prompt
-from pyngrok import ngrok
+# from pyngrok import ngrok
 from sseclient import SSEClient
 import time
 from apitoken import URL, apimodel
 
-public_url = ngrok.connect(5000).public_url
+# public_url = ngrok.connect(5000).public_url
 
 getFunction = {
     "searchengine": searchengine,
@@ -45,7 +45,7 @@ Return function calls in JSON format.
 
 You have ability to show an image by using the markdown format: ![<image-title>](<image-filename>)
 
-Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will run the code in a stateful Jupyter notebook environment and return the snapshot of the cell output to users.
+Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will run the code in a stateful Jupyter notebook environment and automatically return the snapshot of the cell output to users.
 
 Policy for each functions you need to follow:
 'flux_generate_image':
@@ -81,31 +81,31 @@ system_prompt += "<|eot_id|>"
 print(system_prompt)
 seed = int.from_bytes(os.urandom(8), 'big')
 chat = []
-userturn = None
+userTurn = None
 
 
-def resetconv():
-    global userturn
+def reset_conv():
+    global userTurn
     global chat
     chat = [{'role': 'system', 'content': system_prompt}]
-    userturn = True
+    userTurn = True
 
 
-def runmodel(usertext):
-    global userturn
+def run_model(user_text):
+    global userTurn
     global chat
-    if userturn:
+    if userTurn:
         print("---" * 1000)
-        chat.append({'role': 'user', 'content': usertext + "<|eot_id|>"})
+        chat.append({'role': 'user', 'content': user_text + "<|eot_id|>"})
         print("---" * 1000)
         print("AI: \n", end="")
-        userturn = False
-    while not userturn:
+        userTurn = False
+    while not userTurn:
         prompt = generate_prompt(chat) + "<|start_header_id|>assistant<|end_header_id|>\n\n"
         print(prompt)
         output = ""
         try:
-            time.sleep(1) #To limit RPM
+            # time.sleep(1) #To limit RPM
             data = query(URL,
                          {"model": apimodel,
                           "prompt": prompt,
@@ -116,24 +116,39 @@ def runmodel(usertext):
         except Exception as e:
             yield f"error: {e}"
             break
-        toolcalls = False
+        toolCalls = False
+        pythonCode = False
+        chunkCount = 0
         for token in client.events():
+            chunkCount += 1
             print(token.data)
             if token.data != "[DONE]":
                 chunk = json.loads(token.data)['choices'][0]["text"]
                 output += chunk
                 if "<|python_tag|>" in chunk:
-                    toolcalls = True
-                yield chunk if not toolcalls else ''
+                    toolCalls = True
+                try:
+                    nextChar = output.replace("<|python_tag|>", "")[0]
+                    if toolCalls and chunkCount <= 2 and nextChar != "{" and not pythonCode:
+                        yield "**Running python code**\n\n"
+                        pythonCode = True
+                        yield '```\n'
+                except:
+                    pass
+                if not toolCalls and not pythonCode:
+                    yield chunk
+                if pythonCode:
+                    yield chunk.replace("<|python_tag|>", "")
+        yield '\n```\n' if pythonCode else ''
         print("parsing " + output)
 
         if output != "":
             if "<|python_tag|>" not in output:
                 chat.append({'role': 'assistant', 'content': output + "<|eot_id|>"})
-                userturn = True
+                userTurn = True
             elif "<|python_tag|>" in output:
-                userturn = False
-                if isjson(output.replace("<|python_tag|>", "")):
+                userTurn = False
+                if is_json(output.replace("<|python_tag|>", "")):
                     parsed = json.loads(output.replace("<|python_tag|>", ""))
                     chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
                     yield f"**{toolsAlias[parsed['name']]} called.**\n\n"
@@ -143,25 +158,25 @@ def runmodel(usertext):
                     })
                 else:
                     chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
-                    yield "**Python Interpreter called.**\n\n"
-                    outputpython = pythoninterpreter(output.replace("<|python_tag|>", ""))
-                    yield f'```python\n{output.replace("<|python_tag|>", "")}\n```\n\n'
-                    yield f"![output]({outputpython['cell_snapshot']})" if outputpython['cell_snapshot'] != '' else ''
-                    chat.append({'role': 'ipython', 'content': json.dumps(outputpython) + "<|eot_id|>"})
+                    outputPython = python_interpreter(output.replace("<|python_tag|>", ""))
+                    chat.append({'role': 'ipython', 'content': json.dumps(outputPython) + "<|eot_id|>"})
+                    if outputPython['cell_snapshot'] != '':
+                        yield f"![output]({outputPython['cell_snapshot']})"
+                        chat.append({'role': 'assistant', 'content': f"![output]({outputPython['cell_snapshot']})" + "<|eom_id|>"})
         else:
-            userturn = False
+            userTurn = False
 
 
 app = Flask(__name__)
 
 
-app.config["BASE_URL"] = public_url
+# app.config["BASE_URL"] = public_url
 
 
 @app.route('/sendtext')
 def send_text():
-    usertext = request.args.get('text')
-    response = runmodel(usertext)
+    userText = request.args.get('text')
+    response = run_model(userText)
     return Response(stream_with_context(response))
 
 
@@ -177,7 +192,7 @@ def home():
 
 @app.route('/resetconv', methods=['POST'])
 def reset_conversation():
-    resetconv()
+    reset_conv()
     return jsonify({'message': 'Conversation reset'}), 200
 
 
@@ -188,6 +203,6 @@ def chat_history():
 
 if __name__ == '__main__':
     print(f"Using model: {apimodel}")
-    print(f"Access this: {public_url}")
-    resetconv()
+    # print(f"Access this: {public_url}")
+    reset_conv()
     app.run(debug=False)

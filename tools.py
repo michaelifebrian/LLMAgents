@@ -15,16 +15,16 @@ import requests
 from pathlib import Path
 import json
 import traceback
-import sys
 from apitoken import HF_TOKEN
 
 imgCounter = 0
+pythonOutputCounter = 0
 
 
-def isjson(inputjson):
+def is_json(input_json):
     try:
-        json.loads(inputjson)
-    except ValueError as e:
+        json.loads(input_json)
+    except ValueError:
         return False
     return True
 
@@ -40,22 +40,23 @@ def flux_generate_image(prompt: str):
     """
     print(f"Flux called with prompt: {prompt}")
     global imgCounter
-    def quer(payload, API_URL):
-        responsesd = requests.post(API_URL, headers=headers, json=payload)
+
+    def quer(payload, api_url):
+        responsesd = requests.post(api_url, headers=headers, json=payload)
         return responsesd.content
 
     try:
         API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
         headers = {"Authorization": f"Bearer {HF_TOKEN}", "x-use-cache": "false"}
         image_bytes = quer(
-          {"inputs": prompt,
-           "parameters":{
-                "guidance_scale": 3.5,
-               "num_inference_steps": 50,
-               "max_sequence_length": 512
-           },},
-          API_URL
-          )
+            {"inputs": prompt,
+             "parameters": {
+                 "guidance_scale": 3.5,
+                 "num_inference_steps": 50,
+                 "max_sequence_length": 512
+             }, },
+            API_URL
+        )
         image = Image.open(io.BytesIO(image_bytes))
         imgCounter += 1
         image.save(f"image{imgCounter}.jpg")
@@ -66,7 +67,7 @@ def flux_generate_image(prompt: str):
         return {"status": f"Error: {error}"}
 
 
-def searchengineduckduckgo(keyword: str, max_results: int = 8):
+def search_engine_duckduckgo(keyword: str, max_results: int = 8):
     """
     search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
 
@@ -83,7 +84,7 @@ def searchengineduckduckgo(keyword: str, max_results: int = 8):
         return {"status": f"Error: {error}"}
 
 
-def searchenginegoogle(keyword: str):
+def search_engine_google(keyword: str):
     """
     search the web from a keyword. ALWAYS crosschecks the information by accessing the url, the information given from search engine is not updated.
 
@@ -99,7 +100,7 @@ def searchenginegoogle(keyword: str):
     options.add_argument('window-size=1920x1080')
     # start session
     driver = webdriver.Chrome(options=options)
-    returnresult = []
+    returnResult = []
     try:
         # Navigate to Google
         driver.get("https://www.google.co.id")
@@ -135,11 +136,11 @@ def searchenginegoogle(keyword: str):
                 "href": link,
                 "body": description
             }
-            returnresult.append(result_data)
+            returnResult.append(result_data)
     finally:
         # Close the driver
         driver.quit()
-    return returnresult
+    return returnResult
 
 
 def searchengine(keyword: str):
@@ -152,15 +153,15 @@ def searchengine(keyword: str):
         A dict list of search results.
     """
     print(f"Search engine called with keyword: {keyword}")
-    listofresult = []
-    listofresult.extend(searchengineduckduckgo(keyword))
-    listofresult.extend(searchenginegoogle(keyword))
-    return listofresult
+    listResult = []
+    listResult.extend(search_engine_duckduckgo(keyword))
+    listResult.extend(search_engine_google(keyword))
+    return listResult
 
 
 def browser(url: str):
     """
-    open and scrape the web from a url.
+    open and scrape the web from an url.
 
     Args:
         url: The url to open.
@@ -175,11 +176,11 @@ def browser(url: str):
         options.add_argument('--start-maximized')
         options.add_argument('window-size=1920x1080')
         # start session
-        browser = webdriver.Chrome(options=options)
-        browser.get(url)
+        browserdriver = webdriver.Chrome(options=options)
+        browserdriver.get(url)
         time.sleep(7)
-        html = browser.page_source
-        browser.quit()
+        html = browserdriver.page_source
+        browserdriver.quit()
         txt = md(html)
         txt = re.sub('\n+', '\n', txt)
         txt = re.sub('\n +', '\n', txt)
@@ -190,7 +191,7 @@ def browser(url: str):
         return {"status": f"Error: {error}"}
 
 
-def pythoninterpreter(code_string: str):
+def python_interpreter(code_string: str):
     """
     run Python code in jupyter environment and return its output and the snapshot of the cells output. Always use this to validate a generated python code.
 
@@ -200,6 +201,9 @@ def pythoninterpreter(code_string: str):
         The output of the Python script.
     """
     print("Python interpreter called")
+    global pythonOutputCounter
+    pythonOutputCounter += 1
+
     code_string = json.loads(json.dumps(code_string))
     code_string = code_string.encode('utf-8').decode('unicode-escape')
     nb = nbformat.v4.new_notebook()
@@ -240,9 +244,9 @@ def pythoninterpreter(code_string: str):
         driver.set_window_size(width, height)
         time.sleep(3)
         full_body_element = driver.find_element(By.TAG_NAME, "body")
-        full_body_element.screenshot("output.png")
+        full_body_element.screenshot(f"output{pythonOutputCounter}.png")
         driver.quit()
-        return {'cell_snapshot': "output.png", 'text_output': '\n'.join(text_outputs)}
+        return {'cell_snapshot': f"output{pythonOutputCounter}.png", 'text_output': '\n'.join(text_outputs)}
     except Exception as e:
         tb = "".join(traceback.format_exception_only(type(e), e))
         tb = re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{3})?)?[m|K]?', '', tb)
