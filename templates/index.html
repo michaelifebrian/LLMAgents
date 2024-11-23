@@ -12,7 +12,7 @@
       margin: 0;
       padding: 0;
       font-family: 'Roboto', Arial, sans-serif;
-      background: #121212;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
       color: #ffffff;
     }
 
@@ -83,49 +83,27 @@
       padding: 0px 18px;
       border-radius: 17px;
       font-size: 15px;
-      line-height: 1.6;
+      line-height: 1.4;
       box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
       word-wrap: break-word;
     }
 
     .bubble.user {
-      background: linear-gradient(135deg, #3a7bd5, #2b6cb0);
+      background: linear-gradient(225deg, #232526, #1e1e1e);
       color: #ffffff;
       text-align: left;
     }
 
     .bubble.ai {
-      background: #333;
+      background: linear-gradient(135deg, #232526, #1e1e1e);
       color: #d1d1d1;
       text-align: left;
     }
 
-    .bubble.ai.typing::after {
-      content: " .";
-      display: inline-block;
-      animation: typing 1.5s steps(3, end) infinite;
-    }
-
-    @keyframes typing {
-      0% {
-        content: " .";
-      }
-      33% {
-        content: " ..";
-      }
-      66% {
-        content: " ...";
-      }
-      100% {
-        content: " .";
-      }
-    }
-
     .bubble img {
-      max-width: 30%;
+      max-width: 100%;
       height: auto;
-      border-radius: 15px;
-      display: block;
+      border-radius: 4px;
       cursor: pointer; /* Indicate that images are clickable */
     }
 
@@ -157,54 +135,34 @@
       padding: 10px 20px;
       border: none;
       border-radius: 15px;
-      background: linear-gradient(135deg, #3a7bd5, #2b6cb0);
+      background: linear-gradient(135deg, #3d3d3d, #2d2c2c);
       color: #ffffff;
       font-size: 15px;
       font-weight: bold;
       cursor: pointer;
       transition: background 0.3s ease;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
 
     #send:hover {
-      background: linear-gradient(135deg, #2b6cb0, #1f4f91);
+      background: linear-gradient(315deg, #3d3d3d, #2d2c2c);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
     }
 
     #send:active {
       transform: translateY(2px);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
     }
 
-    #send:disabled {
-      transform: translateY(2px);
-      background: #555;
-      color: #777;
-      box-shadow: none;
-      cursor: not-allowed;
+    #send.stop {
+      background: linear-gradient(135deg, #3d3d3d, #2d2c2c);
     }
 
-    #send.typing::after {
-      content: " .";
-      display: inline-block;
-      animation: typing-dots 1.5s steps(3, end) infinite;
+    #send.stop:hover {
+      background: linear-gradient(315deg, #3d3d3d, #2d2c2c);
     }
 
-    @keyframes typing-dots {
-      0% {
-        content: " .";
-      }
-      33% {
-        content: " ..";
-      }
-      66% {
-        content: " ...";
-      }
-      100% {
-        content: " .";
-      }
-    }
-
-    /* Popup Styles */
+        /* Popup Styles */
     #image-popup {
       position: fixed;
       top: 0;
@@ -256,6 +214,8 @@
   </div>
 
   <script>
+    let isStreaming = false;
+
     async function resetConversation() {
       try {
         const response = await fetch('/resetconv', { method: 'POST' });
@@ -285,12 +245,23 @@
     });
 
     sendButton.addEventListener('click', async () => {
+      if (isStreaming) {
+        try {
+          await fetch('/stopgenerate', { method: 'GET' });
+          console.log('Stopped generating.');
+        } catch (error) {
+          console.error('Error stopping generation:', error);
+        }
+        return;
+      }
+
       const userInput = userTextInput.value.trim();
       if (!userInput) return;
 
-      sendButton.disabled = true;
-      sendButton.textContent = 'Sending';
-      sendButton.classList.add('typing');
+      sendButton.disabled = false;
+      sendButton.textContent = 'Stop';
+      sendButton.classList.add('stop');
+      isStreaming = true;
 
       addMessage(userInput, 'user');
       userTextInput.value = '';
@@ -319,7 +290,13 @@
         aiMessageDiv.innerHTML = marked.parse(accumulatedText);
         sendButton.disabled = false;
         sendButton.textContent = 'Send';
-        sendButton.classList.remove('typing');
+        sendButton.classList.remove('stop');
+        isStreaming = false;
+        aiMessageDiv.querySelectorAll('img').forEach(img => {
+          img.addEventListener('click', () => {
+            openImagePopup(img.src);
+          });
+        });
       }
     });
 
@@ -330,14 +307,6 @@
       const bubbleDiv = document.createElement('div');
       bubbleDiv.classList.add('bubble', sender);
       bubbleDiv.innerHTML = marked.parse(text);
-
-      // Add click event listeners to images inside the bubble
-      bubbleDiv.querySelectorAll('img').forEach(img => {
-        img.addEventListener('click', () => {
-          openImagePopup(img.src);
-        });
-      });
-
       messageDiv.appendChild(bubbleDiv);
       messagesDiv.appendChild(messageDiv);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;

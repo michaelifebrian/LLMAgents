@@ -4,12 +4,12 @@ from transformers.utils import get_json_schema
 from flask import Flask, Response, stream_with_context, request, render_template, jsonify, send_from_directory
 from tools import searchengine, browser, flux_generate_image, python_interpreter, is_json
 from utils import query, generate_prompt
-# from pyngrok import ngrok
+from pyngrok import ngrok
 from sseclient import SSEClient
 import time
 from apitoken import URL, apimodel
 
-# public_url = ngrok.connect(5000).public_url
+public_url = ngrok.connect(5000).public_url
 
 getFunction = {
     "searchengine": searchengine,
@@ -33,8 +33,7 @@ system_prompt = f"""Environment: ipython
 Cutting Knowledge Date: December 2023
 Today Date: 21 September 2024
 
-You are Llama 3.1 trained by Meta. You are a helpful assistant. Response with a cheerful and accurate answer.
-<|eot_id|><|start_header_id|>user<|end_header_id|>
+You are Llama 3.1 trained by Meta. You are a helpful assistant. Response with a cheerful and accurate answer, not biased, and not subjective.
 
 Use functions if needed and can help you to assist users better. Think very carefully before calling functions.
 Here is a list of functions in JSON format:
@@ -42,8 +41,6 @@ Here is a list of functions in JSON format:
 {tools}
 
 Return function calls in JSON format.
-
-You have ability to show an image by using the markdown format: ![<image-title>](<image-filename>)
 
 Also you have built in python interpreter. To run python code, just call the <|python_tag|> followed by the code. This will run the code in a stateful Jupyter notebook environment and automatically return the snapshot of the cell output to users.
 
@@ -71,17 +68,35 @@ Policy for each functions you need to follow:
 Python interpreter:
 When you send a message containing Python code using <|python_tag|>, it will be executed in a stateful Jupyter notebook environment. Python will respond with the output of the cells in text format and the snapshot of the cells output from the execution. 
 If you do not want to run the Python code (or any code) in case you want to give the code only, use these markdown format:
-```
+```python
 <code>
 ```
 
-Always give users some explanation of what you just do or what the results is after the function has returned a results."""
+Example when to use and not use function calling:
+Case 1: You need to search a keyword of "Best things to do in Bali", you:
+<|python_tag|>{{"type": "function", "name": "searchengine", "parameters": {{"keyword": "Best things to do in Bali"}}}}<|eom_id|>
+
+Case 2: You need to dig more information from returned searchengine function and you get the urls which is https://www.tripadvisor.com/Attractions-g294226-Activities-Bali.html, you:
+<|python_tag|>{{"type": "function", "name": "browser", "parameters": {{"url": "https://www.tripadvisor.com/Attractions-g294226-Activities-Bali.html"}}}}<|eom_id|>
+
+Case 3: You need to gives user a python code of hello world and run the code, you:
+<|python_tag|>print("Hello World")<|eom_id|>
+
+Case 4: You need to gives user a python code of hello world but doesn't need to run the code, you:
+```python
+print("Hello World")
+```
+<|eot_id|>
+
+You have ability to show an image by using the markdown format: ![<image-title>](<image-filename>).
+Always give users explanation of what you just do or what the results is after the function has returned a results."""
 # system_prompt = "You are a helpful assistant."
 system_prompt += "<|eot_id|>"
 print(system_prompt)
 seed = int.from_bytes(os.urandom(8), 'big')
 chat = []
 userTurn = None
+stopGenerate = False
 
 
 def reset_conv():
@@ -94,12 +109,14 @@ def reset_conv():
 def run_model(user_text):
     global userTurn
     global chat
+    global stopGenerate
     if userTurn:
         print("---" * 1000)
         chat.append({'role': 'user', 'content': user_text + "<|eot_id|>"})
         print("---" * 1000)
         print("AI: \n", end="")
         userTurn = False
+        stopGenerate = False
     while not userTurn:
         prompt = generate_prompt(chat) + "<|start_header_id|>assistant<|end_header_id|>\n\n"
         output = ""
@@ -122,17 +139,20 @@ def run_model(user_text):
         finishReason = None  # None means <|eot_id|>, 128008 means <|eom_id|>
         for token in client.events():
             print(token.data)
+            if stopGenerate:
+                break
             if token.data != "[DONE]":
-                chunk = json.loads(token.data)['choices'][0]["text"]
-                finishReason = json.loads(token.data)['choices'][0]["stop_reason"]
+                choices = json.loads(token.data)['choices'][0]
+                chunk = choices["text"]
+                finishReason = choices["stop_reason"]
                 output += chunk
                 if "<|p" in chunk:
                     toolCalls = True
                 if "<|python_tag|>" in output and toolCalls:
                     try:
                         nextChar = output.split("<|python_tag|>")[-1][0]
-                    except:
-                        nextChar = ''
+                    except IndexError:
+                        nextChar = '{'
                     if nextChar != "{" and not pythonCode:
                         yield "**Running python code**\n\n"
                         pythonCode = True
@@ -148,9 +168,13 @@ def run_model(user_text):
                     yield chunk
         yield '\n```\n' if pythonCode else '\n\n'
         print("parsing " + output)
+        if stopGenerate:
+            chat.append({'role': 'assistant', 'content': output+"<|eot_id|>"})
+            userTurn = True
+            break
         if output != "":
             userTurn = False if finishReason == 128008 else True
-            suffix = "<|eom_id|>" if finishReason == 128008 else "<|eot_id|>"
+            suffix = "<|eom_id|>" if not userTurn else "<|eot_id|>"
             if not toolCalls:
                 chat.append({'role': 'assistant', 'content': output+suffix})
             elif toolCalls:
@@ -174,9 +198,7 @@ def run_model(user_text):
 
 
 app = Flask(__name__)
-
-
-# app.config["BASE_URL"] = public_url
+app.config["BASE_URL"] = public_url
 
 
 @app.route('/sendtext')
@@ -207,8 +229,15 @@ def chat_history():
     return jsonify(chat)
 
 
+@app.route('/stopgenerate')
+def stop_generate():
+    global stopGenerate
+    stopGenerate = True
+    return jsonify({'message': 'Generation stopped'}), 200
+
+
 if __name__ == '__main__':
     print(f"Using model: {apimodel}")
-    # print(f"Access this: {public_url}")
+    print(f"Access this: {public_url}")
     reset_conv()
     app.run(debug=False)
