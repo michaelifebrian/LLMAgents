@@ -251,4 +251,4 @@ def python_interpreter(code_string: str):
         tb = "".join(traceback.format_exception_only(type(e), e))
         tb = re.sub(r'\x1b\[([0-9,A-Z]{1,2}(;[0-9]{1,2})?(;[0-9]{3})?)?[m|K]?', '', tb)
         tb = re.sub(r"-{2,}", "-", tb)
-        return {'cell_snapshot': "", 'text_output': tb}
+        return {'cell_snapshot': "Error running code", 'text_output': tb}

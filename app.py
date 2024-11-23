@@ -102,8 +102,8 @@ def run_model(user_text):
         userTurn = False
     while not userTurn:
         prompt = generate_prompt(chat) + "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        print(prompt)
         output = ""
+        print(prompt)
         try:
             # time.sleep(1) #To limit RPM
             data = query(URL,
@@ -111,6 +111,7 @@ def run_model(user_text):
                           "prompt": prompt,
                           "max_tokens": 4096,
                           'stream': True,
+                          'stop': ["<|eom_id|>"],
                           })
             client = SSEClient(data)
         except Exception as e:
@@ -118,49 +119,54 @@ def run_model(user_text):
             break
         toolCalls = False
         pythonCode = False
-        chunkCount = 0
+        finishReason = None  # None means <|eot_id|>, 128008 means <|eom_id|>
         for token in client.events():
-            chunkCount += 1
             print(token.data)
             if token.data != "[DONE]":
                 chunk = json.loads(token.data)['choices'][0]["text"]
+                finishReason = json.loads(token.data)['choices'][0]["stop_reason"]
                 output += chunk
-                if "<|python_tag|>" in chunk:
+                if "<|p" in chunk:
                     toolCalls = True
-                try:
-                    nextChar = output.replace("<|python_tag|>", "")[0]
-                    if toolCalls and chunkCount <= 2 and nextChar != "{" and not pythonCode:
+                if "<|python_tag|>" in output and toolCalls:
+                    try:
+                        nextChar = output.split("<|python_tag|>")[-1][0]
+                    except:
+                        nextChar = ''
+                    if nextChar != "{" and not pythonCode:
                         yield "**Running python code**\n\n"
                         pythonCode = True
-                        yield '```\n'
-                except:
-                    pass
-                if not toolCalls and not pythonCode:
+                        cleaned = False
+                        yield '```python\n'
+                if not toolCalls:
                     yield chunk
                 if pythonCode:
-                    yield chunk.replace("<|python_tag|>", "")
-        yield '\n```\n' if pythonCode else ''
+                    if not cleaned:
+                        if chunk != chunk.split(">")[-1]:
+                            chunk = chunk.split(">")[-1]
+                            cleaned = True
+                    yield chunk
+        yield '\n```\n' if pythonCode else '\n\n'
         print("parsing " + output)
-
         if output != "":
-            if "<|python_tag|>" not in output:
-                chat.append({'role': 'assistant', 'content': output + "<|eot_id|>"})
-                userTurn = True
-            elif "<|python_tag|>" in output:
-                userTurn = False
+            userTurn = False if finishReason == 128008 else True
+            suffix = "<|eom_id|>" if finishReason == 128008 else "<|eot_id|>"
+            if not toolCalls:
+                chat.append({'role': 'assistant', 'content': output+suffix})
+            elif toolCalls:
                 if is_json(output.replace("<|python_tag|>", "")):
                     parsed = json.loads(output.replace("<|python_tag|>", ""))
-                    chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
-                    yield f"**{toolsAlias[parsed['name']]} called.**\n\n"
+                    chat.append({'role': 'assistant', 'content': output+suffix})
+                    yield f"\n\n**{toolsAlias[parsed['name']]} called.**\n\n"
                     chat.append({
                         'role': 'ipython',
                         'content': json.dumps(getFunction[parsed['name']](**parsed['parameters'])) + "<|eot_id|>"
                     })
                 else:
-                    chat.append({'role': 'assistant', 'content': output + "<|eom_id|>"})
+                    chat.append({'role': 'assistant', 'content': output+suffix})
                     outputPython = python_interpreter(output.replace("<|python_tag|>", ""))
                     chat.append({'role': 'ipython', 'content': json.dumps(outputPython) + "<|eot_id|>"})
-                    if outputPython['cell_snapshot'] != '':
+                    if outputPython['cell_snapshot'] != 'Error running code':
                         yield f"![output]({outputPython['cell_snapshot']})"
                         chat.append({'role': 'assistant', 'content': f"![output]({outputPython['cell_snapshot']})" + "<|eom_id|>"})
         else:
