@@ -162,7 +162,7 @@
       background: linear-gradient(315deg, #3d3d3d, #2d2c2c);
     }
 
-        /* Popup Styles */
+    /* Popup Styles */
     #image-popup {
       position: fixed;
       top: 0;
@@ -270,7 +270,14 @@
       let accumulatedText = '';
 
       try {
-        const response = await fetch(`/sendtext?text=${encodeURIComponent(userInput)}`);
+        const response = await fetch('/sendtext',{
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({usertext: userInput})
+          });
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
 
@@ -306,7 +313,11 @@
 
       const bubbleDiv = document.createElement('div');
       bubbleDiv.classList.add('bubble', sender);
-      bubbleDiv.innerHTML = marked.parse(text);
+      if (sender == 'ai'){
+        bubbleDiv.innerHTML = marked.parse(text);
+      } else if (sender == 'user'){
+        bubbleDiv.innerHTML = marked.parse(text.replace(/\n/g, '<br>'));
+      }
       messageDiv.appendChild(bubbleDiv);
       messagesDiv.appendChild(messageDiv);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;

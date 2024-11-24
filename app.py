@@ -201,9 +201,9 @@ app = Flask(__name__)
 app.config["BASE_URL"] = public_url
 
 
-@app.route('/sendtext')
+@app.route('/sendtext', methods=['POST'])
 def send_text():
-    userText = request.args.get('text')
+    userText = request.get_json()['usertext']
     response = run_model(userText)
     return Response(stream_with_context(response))
 
