@@ -68,7 +68,7 @@ Policy for each functions you need to follow:
 Python interpreter:
 When you send a message containing Python code using <|python_tag|>, it will be executed in a stateful Jupyter notebook environment. Python will respond with the output of the cells in text format and the snapshot of the cells output from the execution. 
 If you do not want to run the Python code (or any code) in case you want to give the code only, use these markdown format:
-```python
+```{{code-language}}
 <code>
 ```
 

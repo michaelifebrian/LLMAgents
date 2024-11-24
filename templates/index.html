@@ -4,8 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Chatbot</title>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/a11y-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked-highlight/lib/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <style>
+    .hljs {
+      border-radius: 10px;
+    }
     /* Base Styles for Dark Mode */
     html, body {
       height: 100%;
@@ -214,6 +220,19 @@
   </div>
 
   <script>
+    const { Marked } = globalThis.marked;
+    const { markedHighlight } = globalThis.markedHighlight;
+    // const { hljs } = globalThis.hljs;
+    const marked = new Marked(
+      markedHighlight({
+      emptyLangClass: 'hljs',
+        langPrefix: 'hljs language-',
+        highlight(code, lang, info) {
+          const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+          return hljs.highlight(code, { language }).value;
+        }
+      })
+    );    
     let isStreaming = false;
 
     async function resetConversation() {
