@@ -128,7 +128,7 @@ def run_model(user_text):
                           "prompt": prompt,
                           "max_tokens": 4096,
                           'stream': True,
-                          'stop': ["<|eom_id|>"],
+                          'logprobs': 1,
                           })
             client = SSEClient(data)
         except Exception as e:
@@ -136,7 +136,7 @@ def run_model(user_text):
             break
         toolCalls = False
         pythonCode = False
-        finishReason = None  # None means <|eot_id|>, 128008 means <|eom_id|>
+        finishReason = None
         for token in client.events():
             print(token.data)
             if stopGenerate:
@@ -144,7 +144,9 @@ def run_model(user_text):
             if token.data != "[DONE]":
                 choices = json.loads(token.data)['choices'][0]
                 chunk = choices["text"]
-                finishReason = choices["stop_reason"]
+                if choices["logprobs"] != None:
+                    finishReason = list(choices["logprobs"]['top_logprobs'][-1].keys())[-1]
+                    print(finishReason)
                 output += chunk
                 if "<|p" in chunk:
                     toolCalls = True
@@ -173,7 +175,7 @@ def run_model(user_text):
             userTurn = True
             break
         if output != "":
-            userTurn = False if finishReason == 128008 else True
+            userTurn = False if finishReason == '<|eom_id|>' else True
             suffix = "<|eom_id|>" if not userTurn else "<|eot_id|>"
             if not toolCalls:
                 chat.append({'role': 'assistant', 'content': output+suffix})
