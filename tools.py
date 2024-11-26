@@ -21,14 +21,6 @@ imgCounter = 0
 pythonOutputCounter = 0
 
 
-def is_json(input_json):
-    try:
-        json.loads(input_json)
-    except ValueError:
-        return False
-    return True
-
-
 def flux_generate_image(prompt: str):
     """
     create image using Flux.1 from prompt and display it. Use long specific prompt to make the image accurate.

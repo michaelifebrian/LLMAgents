@@ -5,7 +5,6 @@ from tools import python_interpreter
 from utils import query, generate_prompt, is_json
 from prompt import system_prompt, toolsAlias, getFunction, parameters
 # from pyngrok import ngrok
-from sseclient import SSEClient
 from apitoken import URL, apimodel
 # public_url = ngrok.connect(5000).public_url
 
@@ -35,50 +34,30 @@ def run_model(user_text):
         stopGenerate = False
     while not userTurn:
         prompt = generate_prompt(chat) + "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        output = ""
         print(prompt)
         try:
-            parameters['stream'] = True
-            data = query(URL, parameters, prompt)
-            client = SSEClient(data)
+            parameters['stream'] = False
+            data = query(URL, parameters, prompt).json()
         except Exception as e:
             yield f"error: {e}"
             break
         toolCalls = False
-        pythonCode = False
         finishReason = None
-        for token in client.events():
-            print(token.data)
-            if stopGenerate:
-                break
-            if token.data != "[DONE]":
-                choices = json.loads(token.data)['choices'][0]
-                chunk = choices["text"]
-                if choices["logprobs"] is not None:
-                    finishReason = list(choices["logprobs"]['top_logprobs'][-1].keys())[-1]
-                    print(finishReason)
-                output += chunk
-                if "<|p" in chunk:
-                    toolCalls = True
-                if "<|python_tag|>" in output and toolCalls:
-                    try:
-                        nextChar = output.split("<|python_tag|>")[-1][0]
-                    except IndexError:
-                        nextChar = '{'
-                    if nextChar != "{" and not pythonCode:
-                        yield "**Running python code**\n\n"
-                        pythonCode = True
-                        cleaned = False
-                        yield '```python\n'
-                if not toolCalls:
-                    yield chunk
-                if pythonCode:
-                    if not cleaned:
-                        if chunk != chunk.split(">")[-1]:
-                            chunk = chunk.split(">")[-1]
-                            cleaned = True
-                    yield chunk
-        yield '\n```\n' if pythonCode else '\n\n'
+        choices = data['choices'][0]
+        output = choices['text']
+        if "<|python_tag|>" in output:
+            toolCalls = True
+            if output.split("<|python_tag|>")[-1][0] != "{":
+                yield "**Running python code**\n\n"
+                yield '```python\n'
+                yield output.split("<|python_tag|>")[-1]
+                yield '\n```\n'
+        if not toolCalls:
+            yield output
+        if choices["logprobs"] is not None:
+            finishReason = list(choices["logprobs"]['top_logprobs'][-1].keys())[-1]
+            print(finishReason)
+        yield '\n\n'
         print("parsing " + output)
         if stopGenerate:
             chat.append({'role': 'assistant', 'content': output+"<|eot_id|>"})
@@ -150,7 +129,6 @@ def stop_generate():
 
 if __name__ == '__main__':
     print(f"Using model: {apimodel}")
-    print(f"Parameter: {parameters}")
     # print(f"Access this: {public_url}")
     reset_conv()
     app.run(debug=False)
